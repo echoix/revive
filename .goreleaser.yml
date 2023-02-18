@@ -1,28 +1,57 @@
-# This is an example goreleaser.yaml file with some sane defaults.
-# Make sure to check the documentation at http://goreleaser.com
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
 ---
-archives:
-  -
-    replacements:
-      386: i386
-      amd64: x86_64
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
+project_name: revive
 before:
   hooks:
-    - "go mod download"
+    - "go mod tidy"
     - "go generate ./..."
+archives:
+  # - id: archive-deprecated
+  #   replacements:
+  #     386: i386
+  #     amd64: x86_64
+  #     darwin: Darwin
+  #     linux: Linux
+  #     windows: Windows
+  - id: archive-compatible-name
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+  - id: latest-version-independant
+    format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of uname.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
 builds:
-  -
-    env:
+  - env:
       - CGO_ENABLED=0
       - BUILDER=GoReleaser
     goos:
       - linux
       - darwin
       - windows
-
+    ldflags:
+      # Default GoReleaser ldflags
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      # ldflags from the repo's Makefile as of 2023-02-18
+      - -X "github.com/mgechev/revive/cli.version={{.Version}}" 
+      - -X "github.com/mgechev/revive/cli.date={{.Date}}" 
+      - -X "github.com/mgechev/revive/cli.commit={{.Commit}}" 
+      - -X "github.com/mgechev/revive/cli.builtBy={{.Env.BUILDER}}"
 dockers:
   - image_templates:
       - "ghcr.io/mgechev/revive:{{ .Version }}"
@@ -50,4 +79,3 @@ checksum:
   name_template: checksums.txt
 snapshot:
   name_template: "{{ .Tag }}-next"
-project_name: revive
